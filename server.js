@@ -344,6 +344,103 @@ app.post("/api/seek", requireLogin, async (req, res) => {
     });
   }
 });
+
+app.post("/api/control", requireLogin, async (req, res) => {
+  const { action, value, uri } = req.body || {};
+
+  const commands = {
+    play: ["PUT", "/me/player/play"],
+    pause: ["PUT", "/me/player/pause"],
+    next: ["POST", "/me/player/next"],
+    previous: ["POST", "/me/player/previous"]
+  };
+
+  try {
+    if (action === "volume") {
+      const volume = Number(value);
+
+      if (!Number.isInteger(volume) || volume < 0 || volume > 100) {
+        return res.status(400).json({
+          error: "Volume must be from 0 to 100."
+        });
+      }
+
+      await spotify(req, `/me/player/volume?volume_percent=${volume}`, {
+        method: "PUT"
+      });
+
+    } else if (action === "shuffle") {
+      if (typeof value !== "boolean") {
+        return res.status(400).json({
+          error: "Shuffle must be true or false."
+        });
+      }
+
+      await spotify(req, `/me/player/shuffle?state=${value}`, {
+        method: "PUT"
+      });
+
+    } else if (action === "track") {
+      if (typeof uri !== "string" ||
+          !/^spotify:track:[A-Za-z0-9]+$/.test(uri)) {
+        return res.status(400).json({
+          error: "Invalid Spotify track URI."
+        });
+      }
+
+      await spotify(req, "/me/player/play", {
+        method: "PUT",
+        body: { uris: [uri] }
+      });
+
+    } else if (action === "repeat") {
+      if (!["off", "context", "track"].includes(value)) {
+        return res.status(400).json({
+          error: "Invalid repeat mode."
+        });
+      }
+
+      await spotify(req, `/me/player/repeat?state=${value}`, {
+        method: "PUT"
+      });
+
+    } else if (action === "playlist") {
+      if (typeof uri !== "string" ||
+          !/^spotify:playlist:[A-Za-z0-9]+$/.test(uri)) {
+        return res.status(400).json({
+          error: "Invalid playlist URI."
+        });
+      }
+
+      await spotify(req, "/me/player/play", {
+        method: "PUT",
+        body: { context_uri: uri }
+      });
+
+    } else if (commands[action]) {
+      const [method, endpoint] = commands[action];
+      await spotify(req, endpoint, { method });
+
+    } else {
+      return res.status(400).json({
+        error: "Unknown control action."
+      });
+    }
+
+    res.json({ ok: true });
+
+  } catch (err) {
+    res.status(err.status || 502).json({
+      error: err.message,
+      hint: err.spotifyStatus === 403
+        ? "Check Spotify playback permissions and the active device."
+        : err.spotifyStatus === 404 || err.spotifyStatus === 204
+        ? "Check whether Spotify has an active playback device."
+        : undefined
+    });
+  }
+});
+
    app.use((req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
