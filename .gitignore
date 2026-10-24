@@ -144,6 +144,9 @@ vite.config.ts.timestamp-*
 
 # Astro generated types
 .astro/
-
+# ADD THIS OR YOU WILL HAVE A BAD TIME
+config.json
+node_modules/
+.env
 # Turbo Repo
 .turbo
