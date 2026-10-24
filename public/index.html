@@ -1,0 +1,499 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YTP Spotify Control Center</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, sans-serif;
+      background: #101010;
+      color: #f7f7f7;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header {
+      padding: 20px;
+      background: #181818;
+      border-bottom: 1px solid #333;
+    }
+    main { max-width: 950px; margin: auto; padding: 20px; }
+    h1 { margin: 0 0 6px; font-size: 1.5rem; }
+    h2 { font-size: 1.1rem; }
+    .muted { color: #aaa; }
+    .panel {
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    button, input, select {
+      font: inherit;
+    }
+    button {
+      background: #292929;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      margin: 4px;
+    }
+    button:hover { background: #383838; }
+    button.primary {
+      background: #1ed760;
+      color: #101010;
+      border: none;
+      font-weight: 700;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; }
+    .track { display: flex; align-items: center; gap: 16px; }
+    .cover {
+      width: 105px;
+      height: 105px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #333;
+    }
+    .track-title { font-size: 1.2rem; font-weight: 700; }
+    .track-info { min-width: 0; overflow-wrap: anywhere; }
+    input[type="range"] { width: min(100%, 360px); accent-color: #1ed760; }
+    select { width: 100%; padding: 12px; background: #252525; color: white; border-radius: 8px; }
+    .list { display: grid; gap: 8px; }
+    .item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px; border-radius: 10px; background: #252525;
+    }
+    .item img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; }
+    .item .details { flex: 1; min-width: 0; }
+    .item .details div { overflow-wrap: anywhere; }
+    #message { min-height: 1.5em; color: #ffcf70; }
+    .hidden { display: none !important; }
+    @media (max-width: 500px) {
+      main { padding: 12px; }
+      .track { align-items: flex-start; }
+      .cover { width: 80px; height: 80px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>🎧 Spotify Control Center</h1>
+  <div class="muted">YTP • Local music dashboard</div>
+</header>
+
+<main>
+  <p id="message" role="status">Ready.</p>
+
+  <section class="panel" id="loginPanel">
+    <h2>Connect Spotify</h2>
+    <p class="muted">Authorize this dashboard with Spotify's official login.</p>
+    <button class="primary" onclick="location.href='/login'">Log in with Spotify</button>
+    <hr>
+    <h2>Pair another browser</h2>
+    <p class="muted">First, log in on the Chromebook and generate a temporary pairing code. Then enter that code here on the other device.</p>
+    <div class="controls">
+      <input id="pairInput" inputmode="numeric" maxlength="6"
+        placeholder="6-digit code" aria-label="Pairing code">
+      <button onclick="pairDevice()">Pair device</button>
+    </div>
+  </section>
+
+  <div id="dashboard" class="hidden">
+    <section class="panel">
+      <div class="muted">Signed in as <strong id="username">Spotify user</strong></div>
+      <div class="track" style="margin-top:16px">
+        <img id="cover" class="cover" alt="Album artwork">
+        <div class="track-info">
+          <div id="trackName" class="track-title">Nothing playing</div>
+         
+<div id="artistName" class="muted">Start playback in Spotify</div>
+<div id="deviceName" class="muted"></div>
+
+<div style="margin-top:14px">
+  <input
+    id="progress"
+    type="range"
+    min="0"
+    max="1000"
+    value="0"
+aria-label="Song progress"
+    style="width:100%"
+  >
+  <div style="display:flex;justify-content:space-between">
+    <span id="elapsed">0:00</span>
+    <span id="duration">0:00</span>
+  </div>
+</div>
+
+        </div>
+      </div>
+      <div class="controls" style="margin-top:16px">
+        <button onclick="control('previous')">⏮ Previous</button>
+        <button class="primary" onclick="control('play')">▶ Play</button>
+        <button onclick="control('pause')">⏸ Pause</button>
+        <button onclick="control('next')">⏭ Next</button>
+        <button id="shuffleButton" onclick="toggleShuffle()">Shuffle: unknown</button>
+        <button onclick="refreshAll()">↻ Refresh</button>
+          <button id="repeatButton" onclick="cycleRepeat()">
+  Repeat: Off
+</button>
+
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Volume</h2>
+      <label for="volume">Spotify volume: <span id="volumeLabel">50%</span></label>
+      <div><input id="volume" type="range" min="0" max="100" value="50"></div>
+      <button onclick="setVolume()">Apply volume</button>
+      <p class="muted">Volume changes may not be supported by every playback device.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Your playlists</h2>
+      <select id="playlists">
+        <option value="">Loading playlists…</option>
+      </select>
+      <div class="controls">
+        <button class="primary" onclick="playPlaylist()">Play selected playlist</button>
+        <button onclick="loadPlaylists()">Reload playlists</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Liked songs</h2>
+      <button onclick="loadLiked()">Load / refresh liked songs</button>
+      <div id="liked" class="list" style="margin-top:12px"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Pair another device</h2>
+      <p class="muted">Generate a one-use code valid for three minutes. Enter it on the other device while it is connected to your home Wi-Fi.</p>
+      <button class="primary" onclick="generatePairCode()">Generate pairing code</button>
+      <h2 id="pairCode" aria-live="polite"></h2>
+      <button onclick="logout()">Log out</button>
+    </section>
+  </div>
+</main>
+
+<script>
+  let player = null;
+  let shuffle = false;
+  let repeatMode = "off";
+    function updateRepeatButton() {
+  const button = document.getElementById("repeatButton");
+
+  if (!button) return;
+
+  const labels = {
+    off: "Repeat: Off",
+    context: "Repeat: All",
+    track: "Repeat: One"
+  };
+
+  button.textContent = labels[repeatMode] || "Repeat: Off";
+}
+  
+
+  const $ = id => document.getElementById(id);
+  const message = text => $("message").textContent = text;
+function formatTime(ms) {
+  const seconds = Math.floor(ms / 1000);
+  return Math.floor(seconds / 60) + ":" +
+    String(seconds % 60).padStart(2, "0");
+}
+  async function api(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers
+      }
+    });
+
+    const data = response.status === 204 ? {} :
+      await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.hint
+        ? `${data.error} ${data.hint}`
+        : data.error || `Request failed (${response.status})`);
+    }
+    return data;
+  }
+
+  async function control(action, extra = {}) {
+    try {
+      await api("/api/control", {
+        method: "POST",
+        body: JSON.stringify({ action, ...extra })
+      });
+      message("Command sent.");
+      await refreshPlayer();
+    } catch (err) {
+      message(err.message);
+    }
+  }
+
+  async function refreshPlayer() {
+    player = await api("/api/player");
+
+    const item = player?.item;
+    $("trackName").textContent = item?.name || "Nothing playing";
+    $("artistName").textContent =
+      item?.artists?.map(a => a.name).join(", ") || "Open Spotify on a playback device";
+
+    $("cover").src = item?.album?.images?.[0]?.url || "";
+    $("deviceName").textContent =
+      player?.device?.name ? "Device: " + player.device.name : "No active device detected";
+
+    if (player?.device?.volume_percent != null) {
+      $("volume").value = player.device.volume_percent;
+      $("volumeLabel").textContent = player.device.volume_percent + "%";
+    }
+
+    shuffle = Boolean(player?.shuffle_state);
+    $("shuffleButton").textContent = "Shuffle: " + (shuffle ? "ON" : "OFF");
+      const durationMs = player?.item?.duration_ms || 0;
+const positionMs = player?.progress_ms || 0;
+$("duration").textContent = formatTime(durationMs);
+$("elapsed").textContent = formatTime(positionMs);
+$("progress").value = durationMs
+  ? Math.round(positionMs / durationMs * 1000)
+  : 0;
+
+repeatMode = player?.repeat_state || "off";
+updateRepeatButton();
+  repeatMode = player?.repeat_state || "off";
+updateRepeatButton();}
+async function cycleRepeat() {
+  const modes = ["off", "context", "track"];
+  const next = modes[(modes.indexOf(repeatMode) + 1) % modes.length];
+
+  try {
+    await api("/api/control", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "repeat",
+        value: next
+      })
+    });
+
+    repeatMode = next;
+    updateRepeatButton();
+    message("Repeat mode set to " + next + ".");
+    await refreshPlayer();
+  } catch (err) {
+    message("Repeat failed: " + err.message);
+  }
+}
+
+  async function refreshAll() {
+    try {
+      const status = await api("/api/status");
+      $("username").textContent = status.user;
+      $("loginPanel").classList.add("hidden");
+      $("dashboard").classList.remove("hidden");
+
+      await refreshPlayer();
+      await loadPlaylists();
+      message("Connected to Spotify.");
+    } catch (err) {
+      if (err.message.includes("Log in")) {
+        $("loginPanel").classList.remove("hidden");
+        $("dashboard").classList.add("hidden");
+      }
+      message(err.message);
+    }
+  }
+
+  async function loadPlaylists() {
+    try {
+      const playlists = await api("/api/playlists");
+      const select = $("playlists");
+      select.replaceChildren();
+
+      if (!playlists.length) {
+        select.add(new Option("No playlists available", ""));
+      }
+
+      for (const playlist of playlists) {
+        if (!playlist.uri) continue;
+        select.add(new Option(playlist.name, playlist.uri));
+      }
+    } catch (err) {
+      message("Playlists: " + err.message);
+    }
+  }
+
+  async function playPlaylist() {
+    const uri = $("playlists").value;
+    if (!uri) return message("Select a playlist first.");
+    await control("playlist", { uri });
+  }
+
+  async function loadLiked() {
+    try {
+      const tracks = await api("/api/liked");
+      const list = $("liked");
+      list.replaceChildren();
+
+      if (!tracks.length) {
+        list.textContent = "No liked songs were returned.";
+        return;
+      }
+
+      for (const track of tracks) {
+        const row = document.createElement("div");
+        row.className = "item";
+
+        const image = document.createElement("img");
+        image.alt = "";
+        image.src = track.album?.images?.[0]?.url || "";
+
+        const details = document.createElement("div");
+        details.className = "details";
+
+        const title = document.createElement("div");
+        title.textContent = track.name;
+
+        const artist = document.createElement("div");
+        artist.className = "muted";
+        artist.textContent = (track.artists || []).map(a => a.name).join(", ");
+
+    
+        const playButton = document.createElement("button");
+        playButton.textContent = "▶ Play";
+        playButton.setAttribute(
+          "aria-label",
+          "Play " + track.name
+        );
+
+        playButton.addEventListener("click", async () => {
+          if (!track.uri) {
+            message("This track has no playable Spotify URI.");
+            return;
+          }
+
+          playButton.disabled = true;
+          playButton.textContent = "Loading…";
+
+          try {
+            await control("track", { uri: track.uri });
+            message("Requested: " + track.name);
+          } catch (err) {
+            message(err.message);
+          } finally {
+            playButton.disabled = false;
+            playButton.textContent = "▶ Play";
+          }
+        });
+
+        details.append(title, artist);
+        row.append(image, details, playButton);
+        list.append(row);
+
+      }
+
+      message(`Loaded ${tracks.length} liked songs.`);
+    } catch (err) {
+      message("Liked songs: " + err.message);
+    }
+  }
+
+  async function setVolume() {
+    const value = Number($("volume").value);
+    $("volumeLabel").textContent = value + "%";
+    await control("volume", { value });
+  }
+
+  async function toggleShuffle() {
+    await control("shuffle", { value: !shuffle });
+  }
+
+  async function generatePairCode() {
+    try {
+      const result = await api("/api/pair-code", { method: "POST" });
+      $("pairCode").textContent =
+        result.code + " — expires in " + result.expiresInSeconds + " seconds";
+      message("Pairing code generated. Treat it like a temporary password.");
+    } catch (err) {
+      message(err.message);
+    }
+  }
+
+  async function pairDevice() {
+    try {
+      await api("/api/pair", {
+        method: "POST",
+        body: JSON.stringify({ code: $("pairInput").value })
+      });
+      $("pairInput").value = "";
+      message("This browser is paired.");
+      await refreshAll();
+    } catch (err) {
+      message(err.message);
+    }
+  }
+
+  async function logout() {
+    await api("/logout", { method: "POST" });
+    location.reload();
+  }
+    setInterval(() => {
+  if (player?.is_playing) {
+    player.progress_ms = Math.min(
+      (player.progress_ms || 0) + 1000,
+      player.item?.duration_ms || Infinity
+    );
+
+    $("elapsed").textContent =
+      Math.floor(player.progress_ms / 60000) + ":" +
+      String(Math.floor(player.progress_ms / 1000) % 60).padStart(2, "0");
+
+    $("progress").value = player.item?.duration_ms
+      ? Math.round(player.progress_ms / player.item.duration_ms * 1000)
+      : 0;
+  }
+}, 1000);
+$("progress").addEventListener("change", async () => {
+  const durationMs = player?.item?.duration_ms || 0;
+
+  if (!durationMs) {
+    message("No song duration available.");
+    return;
+  }
+
+  const positionMs = Math.round(
+    (Number($("progress").value) / 1000) * durationMs
+  );
+
+  try {
+    await api("/api/seek", {
+      method: "POST",
+      body: JSON.stringify({
+        position_ms: positionMs
+      })
+    });
+
+    if (player) player.progress_ms = positionMs;
+    $("elapsed").textContent = formatTime(positionMs);
+    message("Seeking...");
+    await refreshPlayer();
+  } catch (err) {
+    message("Seek failed: " + err.message);
+  }
+});
+  $("volume").addEventListener("input", () => {
+    $("volumeLabel").textContent = $("volume").value + "%";
+  });
+
+  refreshAll();
+</script>
+</body>
+</html>
