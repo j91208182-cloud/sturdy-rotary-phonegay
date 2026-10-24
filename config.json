@@ -1,0 +1,7 @@
+{
+  "SPOTIFY_CLIENT_ID": "e879ad77e337429ab5da80faeb8ebde3",
+  "SPOTIFY_CLIENT_SECRET": "5f5eb22f83654170becf0e724db2e8cb",
+  "SPOTIFY_REDIRECT_URI": "http://127.0.0.1:8888/callback",
+  "SESSION_SECRET": "thisbitchisgay",
+  "PORT": 8888
+}
